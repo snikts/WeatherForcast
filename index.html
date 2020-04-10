@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.11/dist/vue.js"></script>
+    <style>
+    .shadowed {
+        text-shadow: 1px 1px 2px black;
+        color:       white;
+    }
+
+    .stuffbox {
+        font-family: 'helvetica neue', helvetica, sans-serif;
+        color: white;
+        letter-spacing: 1px;
+        text-transform: capitalize;
+        text-align: center;
+        padding: 3px 10px;
+        margin: 10px;
+        cursor: pointer;
+        border-radius: 10px;
+        border-width: 2px;
+        border-style: solid;
+    }
+    .red {
+        border-color: rgb(255,0,0);
+        background:   rgb(180,60,60);
+        box-shadow: 1px 1px 2px rgba(200,0,0,0.4);
+    }
+
+    .yellow {
+        border-color: rgb(255,255,0);
+        background:   rgb(180,180,60);
+        box-shadow: 1px 1px 2px rgba(200,200,0,0.4);
+    }
+
+    .blue {
+        border-color: rgb(0,0,255);
+        background:   rgb(60,60,180);
+        box-shadow: 1px 1px 2px rgba(0,0,200,0.4);
+    }
+
+    .green {
+        border-color: rgb(0,255,0);
+        background:   rgb(60,180,60);
+        box-shadow: 1px 1px 2px rgba(0,200,0,0.4);
+    }
+
+    .black {
+        border-color: rgb(0,0,0);
+        background:   rgb(75,75,75);
+        box-shadow: 1px 1px 2px rgba(200,200,0,0.4);
+    }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <h1 class="stuffbox shadowed">Vue.Js Weather App</h1>
+    <p v-if="typeof city == 'undefined'">Getting location...</p>
+    <div v-else class="shadowed stuffbox blue">
+        You are located in {{ city }}, {{ state }}, {{ country }} at coordinates ({{ long }}, {{ lat }})
+    </div>
+
+    <p v-if="typeof currentWeather == 'undefined'">Getting current weather...</p>
+    <div v-else class="shadowed stuffbox yellow">
+        <h4>Current Conditions</h4>
+        Current Temperature: {{ currentWeather["main"]["temp"] }}F
+        <br>
+        Low: {{ currentWeather["main"]["temp_min"] }}F
+        <br>
+        High: {{ currentWeather["main"]["temp_max"] }}F
+        <br>
+        Pressure: {{ currentWeather["main"]["pressure"] }}hPa
+        <br>
+        Humidity: {{ currentWeather["main"]["humidity"] }}%
+        <br>
+        Weather: {{ currentWeather["weather"][0]["description"] }}
+        <br>
+
+    </div>
+    <p v-if="typeof forecasts == 'undefined'">Fetching forecasts from cloud.</p>
+    <div v-else>
+        <p>There are {{ neutral }} neutral forecasts, {{ likely }}  likely forecasts, and {{ unlikely }} unlikely forecasts.</p>
+        <div v-for="(forecast, idx) in forecasts"
+             @click="toggle"
+             :data-index="idx"
+             :class="{ 'shadowed stuffbox black' : forecast.neutral, 'shadowed stuffbox green': forecast.likely, 'shadowed stuffbox red': forecast.unlikely }"
+             >
+            {{ forecast["dt_txt"] }}
+            <br>
+            {{ forecast["main"]["temp"] }} degrees Fahrenheit
+            <br>
+            {{ forecast["main"]["humidity"] }} percent humidity
+            <br>
+            {{ forecast["main"]["pressure"] }} hPa
+            <br>
+            {{ forecast["weather"][0]["description"] }}
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+  var theData;
+
+  var app = new Vue({
+    el: '#app',
+    data: {
+        forecasts: undefined,
+        city: undefined,
+        state: undefined,
+        stateCode: undefined,
+        country: undefined,
+        countryCode: undefined,
+        lat: undefined,
+        long: undefined,
+        currentWeather: undefined,
+    },
+
+    methods: {
+        toggle: function (ev) {
+            console.log(ev.target)
+            let idx = ev.target.getAttribute('data-index');
+            let n = this.forecasts[idx].neutral;
+            let u = this.forecasts[idx].unlikely;
+            let l = this.forecasts[idx].likely;
+            if(n == true) {
+                this.forecasts[idx].neutral = false;
+                this.forecasts[idx].likely = true;
+            }
+            else if(u == true) {
+                this.forecasts[idx].unlikely = false;
+                this.forecasts[idx].neutral = true;
+            }
+            else if(l == true) {
+                this.forecasts[idx].likely = false;
+                this.forecasts[idx].unlikely = true;
+            }
+
+
+        }
+    },
+
+    computed: {
+        likely() {
+            let l = 0;
+            for(item of this.forecasts) {
+                if(item.likely)
+                    l++;
+            }
+            return l;
+        },
+
+        unlikely() {
+            let u = 0;
+            for(item of this.forecasts) {
+                if(item.unlikely)
+                    u++
+            }
+            return u;
+        },
+
+        neutral() {
+            let n = 0;
+            for(item of this.forecasts) {
+                if(item.neutral)
+                    n++
+            }
+            return n;
+        },
+
+    },
+
+    created() {
+        fetch('http://api.ipstack.com/check?access_key=9fb29a794c4970f79e452e242af2fece')
+        .then((response) => {
+            return response.json();
+        })
+        .then((data) => {
+            console.log(data);
+            this.city = data["city"];
+            this.stateCode = data["region_code"];
+            this.state = data["region_name"];
+            this.countryCode = data["country_code"];
+            this.country = data["country_name"];
+            this.lat = data["latitude"];
+            this.long = data["longitude"];
+            let url = 'http://api.openweathermap.org/data/2.5/forecast?q=';
+            let url2 = url + this.city + ',';
+            let url3 = url2 + this.stateCode + ',';
+            let url4 = url3 + this.countryCode + '&units=imperial&appid=0768b8e0b7ced92b61d123cf074e2de6';
+            let urlShort = url2 + url3 + this.countryCode + '&units=imperial&appid=0768b8e0b7ced92b61d123cf074e2de6';
+            let weatherUrl = 'http://api.openweathermap.org/data/2.5/weather?q=' + this.city + ',' + this.stateCode + ',' + this.countryCode + '&units=imperial&appid=0768b8e0b7ced92b61d123cf074e2de6';
+            console.log(url4);
+            fetch(weatherUrl)
+            .then((blah) => {
+                return blah.json();
+            })
+            .then((blah2) => {
+                this.currentWeather = blah2;
+                console.log(this.currentWeather);
+            });
+            fetch(url4)
+            .then((response1) => {
+                return response1.json();
+            })
+            .then((data1) => {
+                data1["list"].forEach(element => {
+                    element.neutral = true;
+                    element.likely = false;
+                    element.unlikely = false;
+                })
+                this.forecasts = data1["list"];
+                console.log(data1);
+                console.log(this.forecasts);
+            });
+        });
+    },
+
+  });
+
+</script>
+
+</body>
+</html>
